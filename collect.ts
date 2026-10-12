@@ -155,7 +155,8 @@ for (let page = 1, tries = 0; page <= GITHUB_PAGES && tries < 5; ) {
 }
 log("  repos:", ghRepos.length);
 
-const NPUB_RE = /\b(npub1[02-9ac-hj-np-z]{58}|nprofile1[02-9ac-hj-np-z]{20,})\b/gi;
+const MAX_README_NPUBS = 3;
+const NPUB_RE =/\b(npub1[02-9ac-hj-np-z]{58}|nprofile1[02-9ac-hj-np-z]{20,})\b/gi;
 const recentIso = new Date((NOW - RECENT_S) * 1000).toISOString();
 async function readme(r: any) {
   for (const f of ["README.md", "readme.md", "README", "README.markdown"]) {
@@ -168,7 +169,9 @@ for (let i = 0; i < ghRepos.length; i += 16) {
   await Promise.all(ghRepos.slice(i, i + 16).map(async (r) => {
     const pks = new Set<string>();
     for (const m of (await readme(r)).matchAll(NPUB_RE)) { const pk = pubkeyOf(m[1]); if (pk) pks.add(pk); }
-    for (const pk of [...pks].slice(0, 6))
+    // A README naming many npubs is a list or a credits section, not a sign of who runs the project.
+    if (pks.size > MAX_README_NPUBS) return;
+    for (const pk of pks)
       addProject(pk, { src: "github", name: r.full, desc: r.desc.replace(/\s+/g, " "), link: `https://github.com/${r.full}`,
         act: 0, recent: !r.archived && r.pushed > recentIso, stars: r.stars });
   }));
