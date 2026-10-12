@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nostr Builders</title>
+<meta name="description" content="People building on Nostr, found through git repos announced on Nostr and nostr-tagged GitHub projects. Rank them by your own network.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* One reading column of profile entries under a sticky filter bar; data in mono, prose in Atkinson. */
+:root {
+  --bg: #f6f5f8; --surface: #ffffff; --fg: #1d1b22; --muted: #6b6676; --line: #e2dfe8;
+  --accent: #6a3fb5; --accent-soft: #efe8fa; --git: #2f7d4f; --git-soft: #e4f2e9; --gh: #3a4a5c; --gh-soft: #e8ecf1;
+  --f-body: "Atkinson Hyperlegible", system-ui, sans-serif; --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root {
+  --bg: #15141a; --surface: #1d1c24; --fg: #ebe8f1; --muted: #a29cae; --line: #2f2d38;
+  --accent: #b896ff; --accent-soft: #2c2340; --git: #7fd19f; --git-soft: #1c2f24; --gh: #a9bad0; --gh-soft: #242b35; color-scheme: dark } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 760px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 64px; }
+h1 { font-size: 1.7rem; margin: 0 0 .3rem; text-wrap: balance; letter-spacing: -.01em; }
+.lede { color: var(--muted); margin: 0 0 1rem; max-width: 62ch; }
+a { color: var(--accent); }
+.net { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; margin-bottom: 4px; }
+.net b { font-size: .95rem; }
+.net input { flex: 1 1 200px; min-width: 0; font: inherit; font-family: var(--f-mono); font-size: .8rem; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); }
+button { font: inherit; font-size: .9rem; padding: 5px 11px; border-radius: 6px; border: 1px solid var(--accent); background: var(--accent); color: var(--surface); cursor: pointer; }
+button.ghost { background: transparent; color: var(--accent); }
+button:disabled { opacity: .55; cursor: default; }
+.status { font-size: .85rem; color: var(--muted); flex-basis: 100%; }
+.status:empty { display: none; }
+.bar { position: sticky; top: 0; z-index: 2; background: var(--bg); padding-block: 10px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+.bar input[type=search] { flex: 1 1 220px; min-width: 0; font: inherit; padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--fg); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.bar label { display: inline-flex; gap: 5px; align-items: center; font-size: .9rem; color: var(--muted); cursor: pointer; }
+.bar select { font: inherit; font-size: .9rem; padding: 5px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--fg); }
+.count { font-family: var(--f-mono); font-size: .8rem; color: var(--muted); margin: 14px 0 6px; font-variant-numeric: tabular-nums; }
+.list { display: flex; flex-direction: column; gap: 10px; }
+.p { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.top a.name { font-weight: 700; font-size: 1.05rem; color: var(--fg); text-decoration: none; }
+.top a.name:hover { color: var(--accent); text-decoration: underline; }
+.chip { font-family: var(--f-mono); font-size: .72rem; padding: 1px 7px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.chip.quiet { background: transparent; color: var(--muted); padding-inline: 0; }
+.about { color: var(--muted); font-size: .9rem; overflow-wrap: anywhere; }
+.meta { font-family: var(--f-mono); font-size: .75rem; color: var(--muted); overflow-wrap: anywhere; }
+.meta a { color: inherit; }
+ul.repos { list-style: none; margin: 2px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+ul.repos li { font-size: .88rem; display: flex; gap: 8px; align-items: baseline; min-width: 0; }
+.src { font-family: var(--f-mono); font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; padding: 0 5px; border-radius: 4px; flex: none; }
+.src.nostr { background: var(--git-soft); color: var(--git); }
+.src.github { background: var(--gh-soft); color: var(--gh); }
+ul.repos a { color: var(--fg); font-weight: 700; text-decoration-color: var(--line); }
+ul.repos a:hover { color: var(--accent); }
+ul.repos .d { color: var(--muted); min-width: 0; overflow-wrap: anywhere; flex: 1; }
+.stars { font-family: var(--f-mono); font-size: .75rem; color: var(--muted); white-space: nowrap; }
+.empty { color: var(--muted); padding: 30px 0; text-align: center; }
+.foot { margin-top: 28px; font-size: .82rem; color: var(--muted); max-width: 62ch; }
+.foot p { margin: 0 0 .6em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Nostr Builders</h1>
+  <p class="lede">People building on Nostr, each with a Nostr profile you can follow. Found through git repos announced on Nostr (NIP-34) and the most-starred GitHub projects tagged <i>nostr</i> whose README names an npub. Rebuilt daily.</p>
+
+  <div class="net" id="net">
+    <b>See it through your network</b>
+    <button id="ext" type="button">Use Nostr extension</button>
+    <input id="npub" placeholder="or paste an npub" aria-label="Your npub" autocomplete="off" spellcheck="false">
+    <button id="go" type="button" class="ghost">Go</button>
+    <button id="clear" type="button" class="ghost" hidden>Back to everyone's view</button>
+    <span class="status" id="status"></span>
+  </div>
+
+  <div class="bar">
+    <input type="search" id="q" placeholder="Search names, projects, descriptions" aria-label="Search">
+    <label id="hfl" hidden><input type="checkbox" id="hideFollow" checked> Hide people you follow</label>
+    <label><input type="checkbox" id="posting"> Posted in the last 30 days</label>
+    <select id="src" aria-label="Source"><option value="">All sources</option><option value="nostr">Git on Nostr</option><option value="github">GitHub</option></select>
+    <select id="sort" aria-label="Sort"><option value="score">Recommended</option><option value="n">Most followed</option><option value="posts">Most posts (30 days)</option><option value="stars">GitHub stars</option></select>
+  </div>
+  <div class="count" id="count">Loading…</div>
+  <div class="list" id="list"></div>
+
+  <div class="foot">
+    <p><b>How it's ranked.</b> By default, by how many other builders follow someone, plus repo activity, recent posting and GitHub stars. With your network, "followed by" counts the people <i>you</i> follow instead. Your follows are fetched by your own browser from public relays; nothing is sent anywhere else.</p>
+    <p><b>How people are linked to projects.</b> "Nostr git" repos were announced by that profile's key. "GitHub" repos name the profile's npub in their README: usually the maintainer or the project's own account, sometimes a contributor.</p>
+    <p id="gen"></p>
+    <p>Source and issues: <a href="https://github.com/sybenx/nostr-builders">github.com/sybenx/nostr-builders</a></p>
+  </div>
+</div>
+<script>
+"use strict";
+const RELAYS = ["wss://purplepag.es", "wss://relay.damus.io", "wss://relay.primal.net", "wss://nos.lol"];
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+let DATA = [], NET = null; // NET = { pk, follows: Set (builders you follow), n: Map(pk -> how many of your follows follow them) }
+
+// ---- bech32: npub / nprofile -> hex
+const CH = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+function polymod(v) {
+  const g = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3];
+  let c = 1;
+  for (const x of v) { const b = c >>> 25; c = ((c & 0x1ffffff) << 5) ^ x; for (let i = 0; i < 5; i++) if ((b >>> i) & 1) c ^= g[i]; }
+  return c >>> 0;
+}
+function pubkeyOf(s) {
+  s = s.trim().toLowerCase().replace(/^nostr:/, "");
+  if (/^[0-9a-f]{64}$/.test(s)) return s;
+  const i = s.lastIndexOf("1"), hrp = s.slice(0, i), data = [...s.slice(i + 1)].map((c) => CH.indexOf(c));
+  if (i < 1 || data.length < 7 || data.some((x) => x < 0)) return null;
+  const hx = [...hrp].map((c) => c.charCodeAt(0) >> 5).concat(0, [...hrp].map((c) => c.charCodeAt(0) & 31));
+  if (polymod(hx.concat(data)) !== 1) return null;
+  const bytes = []; let acc = 0, bits = 0;
+  for (const x of data.slice(0, -6)) { acc = (acc << 5) | x; bits += 5; if (bits >= 8) { bits -= 8; bytes.push((acc >>> bits) & 255); } acc &= 0xfff; }
+  const hex = (b) => b.map((x) => x.toString(16).padStart(2, "0")).join("");
+  if (hrp === "npub") return bytes.length >= 32 ? hex(bytes.slice(0, 32)) : null;
+  for (let j = 0; j + 2 <= bytes.length; j += 2 + bytes[j + 1]) if (bytes[j] === 0 && bytes[j + 1] === 32) return hex(bytes.slice(j + 2, j + 34));
+  return null;
+}
+
+// ---- relays
+function query(url, filter, ms = 15000) {
+  return new Promise((res) => {
+    const out = []; let ws;
+    const done = () => { try { ws.close(); } catch (e) {} res(out); };
+    const t = setTimeout(done, ms);
+    try { ws = new WebSocket(url); } catch (e) { clearTimeout(t); return res(out); }
+    ws.onopen = () => ws.send(JSON.stringify(["REQ", "q", filter]));
+    ws.onmessage = (m) => {
+      let d; try { d = JSON.parse(m.data); } catch (e) { return; }
+      if (d[0] === "EVENT") out.push(d[2]);
+      if (d[0] === "EOSE" || d[0] === "CLOSED") { clearTimeout(t); done(); }
+    };
+    ws.onerror = () => { clearTimeout(t); done(); };
+  });
+}
+const ptags = (e) => e.tags.filter((t) => t[0] === "p" && /^[0-9a-f]{64}$/.test(t[1] || "")).map((t) => t[1]);
+
+async function loadNetwork(pk) {
+  const status = $("status"), builders = new Set(DATA.map((r) => r.pk));
+  try {
+    const cached = JSON.parse(localStorage.getItem("nb-net") || "null");
+    if (cached && cached.pk === pk && Date.now() - cached.at < 864e5) return setNet(pk, cached.follows, cached.n, cached.total);
+  } catch (e) {}
+  status.textContent = "Finding your follow list…";
+  const mine = (await Promise.all(RELAYS.map((u) => query(u, { kinds: [3], authors: [pk] })))).flat().filter((e) => e.pubkey === pk)
+    .sort((a, b) => b.created_at - a.created_at)[0];
+  if (!mine) { status.textContent = "Couldn't find a follow list for that key on " + RELAYS.length + " relays."; return; }
+  const follows = [...new Set(ptags(mine))];
+  const newest = new Map(); // author -> { at, builders they follow }
+  const BATCH = 200;
+  for (let i = 0; i < follows.length; i += BATCH) {
+    status.textContent = `Reading the follow lists of the ${follows.length} people you follow… ${Math.min(i + BATCH, follows.length)}/${follows.length}`;
+    const authors = follows.slice(i, i + BATCH);
+    const evs = (await Promise.all(RELAYS.slice(0, 3).map((u) => query(u, { kinds: [3], authors }, 20000)))).flat();
+    for (const e of evs) {
+      if (!authors.includes(e.pubkey) || newest.get(e.pubkey)?.at >= e.created_at) continue;
+      newest.set(e.pubkey, { at: e.created_at, b: ptags(e).filter((p) => builders.has(p)) });
+    }
+  }
+  const n = {};
+  for (const { b } of newest.values()) for (const p of new Set(b)) n[p] = (n[p] || 0) + 1;
+  const youFollow = follows.filter((p) => builders.has(p));
+  try { localStorage.setItem("nb-net", JSON.stringify({ pk, at: Date.now(), follows: youFollow, n, total: follows.length })); } catch (e) {}
+  setNet(pk, youFollow, n, follows.length, newest.size);
+}
+function setNet(pk, follows, n, total, found) {
+  NET = { pk, follows: new Set(follows), n: new Map(Object.entries(n)) };
+  $("status").textContent = `Ranked by the ${total} people you follow` + (found ? ` (${found} follow lists found)` : "") +
+    `. ${follows.length} of these builders you already follow.`;
+  $("clear").hidden = false; $("hfl").hidden = false;
+  render();
+}
+
+// ---- view
+const followedBy = (r) => (NET ? NET.n.get(r.pk) || 0 : r.bf);
+const score = (r) => r.base + (NET ? Math.min(followedBy(r), 40) * 1.5 : Math.min(r.bf, 60) * 1.2);
+function render() {
+  const q = $("q").value.trim().toLowerCase(), hf = NET && $("hideFollow").checked, po = $("posting").checked, src = $("src").value, sort = $("sort").value;
+  try { localStorage.setItem("nb-view", JSON.stringify({ hideFollow: $("hideFollow").checked, posting: po, src, sort })); } catch (e) {}
+  let rows = DATA.filter((r) => (!hf || !NET.follows.has(r.pk)) && (!po || r.posts > 0) && (!src || r.projects.some((p) => p.src === src))
+    && (!q || (r.name + " " + r.about + " " + r.nip05 + " " + r.projects.map((p) => p.name + " " + p.desc).join(" ")).toLowerCase().includes(q)));
+  const key = { score, n: followedBy, posts: (r) => r.posts, stars: (r) => r.stars }[sort];
+  rows = rows.slice().sort((a, b) => key(b) - key(a) || score(b) - score(a));
+  $("count").textContent = rows.length + " of " + DATA.length + " profiles";
+  $("list").innerHTML = rows.length ? rows.map((r) => {
+    const fb = followedBy(r);
+    const rel = NET && NET.follows.has(r.pk) ? '<span class="chip">you follow</span>'
+      : fb ? `<span class="chip">${NET ? `${fb} of your follows follow` : `followed by ${fb} builder${fb === 1 ? "" : "s"}`}</span>` : "";
+    const posts = `<span class="chip quiet">${r.posts ? r.posts + " posts in 30 days" : "no posts in 30 days"}</span>`;
+    const meta = [r.nip05 ? esc(r.nip05) : "", r.site ? `<a href="${esc(r.site)}" rel="noopener">${esc(r.site.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a>` : ""].filter(Boolean);
+    const repos = r.projects.map((p) => `<li><span class="src ${p.src}">${p.src === "nostr" ? "nostr git" : "github"}</span><span class="d"><a href="${esc(p.link)}" rel="noopener">${esc(p.name)}</a>${p.desc ? " · " + esc(p.desc) : ""}</span>${p.stars ? `<span class="stars">★ ${p.stars.toLocaleString()}</span>` : ""}</li>`).join("")
+      + (r.more ? `<li><span class="d">+${r.more} more repos</span></li>` : "");
+    return `<article class="p"><div class="top"><a class="name" href="https://njump.me/${r.npub}" rel="noopener">${esc(r.name)}</a>${rel}${posts}</div>`
+      + (r.about ? `<div class="about">${esc(r.about)}</div>` : "")
+      + (meta.length ? `<div class="meta">${meta.join(" · ")}</div>` : "")
+      + `<ul class="repos">${repos}</ul></article>`;
+  }).join("") : '<p class="empty">No profiles match. Clear the search or untick a filter.</p>';
+}
+
+// ---- wiring
+for (const id of ["q", "hideFollow", "posting", "src", "sort"]) $(id).addEventListener("input", render);
+try {
+  const s = JSON.parse(localStorage.getItem("nb-view") || "{}");
+  if ("hideFollow" in s) $("hideFollow").checked = s.hideFollow;
+  if ("posting" in s) $("posting").checked = s.posting;
+  if (s.src) $("src").value = s.src;
+  if (s.sort) $("sort").value = s.sort;
+} catch (e) {}
+async function start(pk) {
+  for (const b of ["ext", "go"]) $(b).disabled = true;
+  try { await loadNetwork(pk); } catch (e) { $("status").textContent = "Something went wrong reading your network: " + e; }
+  for (const b of ["ext", "go"]) $(b).disabled = false;
+}
+$("ext").onclick = async () => {
+  if (!window.nostr) { $("status").textContent = "No Nostr extension found in this browser. Paste your npub instead."; return; }
+  try { start(await window.nostr.getPublicKey()); } catch (e) { $("status").textContent = "The extension didn't share your key."; }
+};
+$("go").onclick = () => { const pk = pubkeyOf($("npub").value); if (pk) start(pk); else $("status").textContent = "That doesn't look like an npub."; };
+$("npub").addEventListener("keydown", (e) => { if (e.key === "Enter") $("go").click(); });
+$("clear").onclick = () => {
+  NET = null; $("clear").hidden = true; $("hfl").hidden = true; $("status").textContent = "";
+  try { localStorage.removeItem("nb-net"); } catch (e) {}
+  render();
+};
+fetch("data.json").then((r) => r.json()).then((d) => {
+  DATA = d.entries;
+  $("gen").textContent = `Last rebuilt ${new Date(d.generated).toLocaleString()} from ${d.sources.nostrRepos.toLocaleString()} repos announced on Nostr and ${d.sources.githubRepos.toLocaleString()} GitHub repos.`;
+  render();
+  try { const c = JSON.parse(localStorage.getItem("nb-net") || "null"); if (c && Date.now() - c.at < 864e5) setNet(c.pk, c.follows, c.n, c.total); } catch (e) {}
+}).catch(() => { $("count").textContent = "Couldn't load the directory data."; });
+</script>
+</body>
+</html>
