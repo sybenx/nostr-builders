@@ -215,7 +215,12 @@ for (const pk of candidates) {
   const name = String(c.display_name || c.name || "").trim().slice(0, 40);
   if (!name) continue;
   const seen = new Set<string>();
-  const ps = (projects.get(pk) ?? []).sort((a, b) => b.stars - a.stars || b.act - a.act || Number(b.recent) - Number(a.recent))
+  // Most clearly theirs first: GitHub repos whose owner matches their name/NIP-05/website, then repos they announced
+  // on Nostr themselves, then GitHub repos that merely mention their npub.
+  const ids = [c.name, c.display_name, c.nip05, c.website, c.lud16].map((x) => String(x || "").toLowerCase().replace(/[^a-z0-9]/g, "")).filter((x) => x.length >= 3);
+  const owned = (p: Project) => { const o = p.name.split("/")[0].toLowerCase().replace(/[^a-z0-9]/g, ""); return o.length >= 3 && ids.some((x) => x.includes(o) || o.includes(x)); };
+  const rank = (p: Project) => (p.src === "github" ? (owned(p) ? 0 : 2) : 1);
+  const ps = (projects.get(pk) ?? []).sort((a, b) => rank(a) - rank(b) || b.stars - a.stars || b.act - a.act || Number(b.recent) - Number(a.recent))
     .filter((p) => !seen.has(p.name.toLowerCase()) && seen.add(p.name.toLowerCase()));
   const bf = builderFollowers.get(pk) ?? 0, n30 = posts.get(pk)?.size ?? 0;
   const stars = Math.max(0, ...ps.map((p) => p.stars)), act = ps.reduce((s, p) => s + p.act, 0);
