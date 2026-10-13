@@ -95,7 +95,8 @@ ul.repos .d { color: var(--muted); min-width: 0; overflow-wrap: anywhere; flex: 
 </div>
 <script>
 "use strict";
-const RELAYS = ["wss://purplepag.es", "wss://relay.damus.io", "wss://relay.primal.net", "wss://nos.lol"];
+// Best coverage of kind 3 first: relay.nos.social returned ~90% of follow lists in testing, damus far fewer.
+const RELAYS = ["wss://relay.nos.social", "wss://purplepag.es", "wss://relay.primal.net", "wss://nos.lol", "wss://relay.damus.io"];
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 let DATA = [], NET = null; // NET = { pk, follows: Set (builders you follow), n: Map(pk -> how many of your follows follow them) }
@@ -153,16 +154,36 @@ async function loadNetwork(pk) {
   if (!mine) { status.textContent = "Couldn't find a follow list for that key on " + RELAYS.length + " relays."; return; }
   const follows = [...new Set(ptags(mine))];
   const newest = new Map(); // author -> { at, builders they follow }
-  const BATCH = 200;
-  for (let i = 0; i < follows.length; i += BATCH) {
-    status.textContent = `Reading the follow lists of the ${follows.length} people you follow… ${Math.min(i + BATCH, follows.length)}/${follows.length}`;
-    const authors = follows.slice(i, i + BATCH);
-    const evs = (await Promise.all(RELAYS.slice(0, 3).map((u) => query(u, { kinds: [3], authors }, 20000)))).flat();
-    for (const e of evs) {
-      if (!authors.includes(e.pubkey) || newest.get(e.pubkey)?.at >= e.created_at) continue;
-      newest.set(e.pubkey, { at: e.created_at, b: ptags(e).filter((p) => builders.has(p)) });
-    }
-  }
+  const progress = () => { status.textContent = `Reading the follow lists of the ${follows.length} people you follow… ${newest.size} found`; };
+  // Asks one relay for the lists still missing among `authors`, 200 per request, 4 requests at a time. A relay that
+  // returns as many events as authors asked for may have hit its cap (purplepag.es spends it on old versions of busy
+  // lists), so it is asked again for the rest.
+  const ask = async (u, authors) => {
+    const chunks = [];
+    for (let i = 0; i < authors.length; i += 200) chunks.push(authors.slice(i, i + 200));
+    let next = 0;
+    await Promise.all(Array.from({ length: Math.min(4, chunks.length) }, async () => {
+      while (next < chunks.length) {
+        const chunk = chunks[next++];
+        for (let pass = 0; pass < 3; pass++) {
+          const want = new Set(chunk.filter((p) => !newest.has(p)));
+          if (!want.size) break;
+          const evs = await query(u, { kinds: [3], authors: [...want] }, 20000);
+          for (const e of evs) {
+            if (!want.has(e.pubkey) || newest.get(e.pubkey)?.at >= e.created_at) continue;
+            newest.set(e.pubkey, { at: e.created_at, b: ptags(e).filter((p) => builders.has(p)) });
+          }
+          progress();
+          if (evs.length < want.size) break;
+        }
+      }
+    }));
+  };
+  // The best-covering relay first, then the rest together for whatever it lacked, so most lists download once.
+  progress();
+  await ask(RELAYS[0], follows);
+  const missing = follows.filter((p) => !newest.has(p));
+  await Promise.all(RELAYS.slice(1).map((u) => ask(u, missing)));
   const n = {};
   for (const { b } of newest.values()) for (const p of new Set(b)) n[p] = (n[p] || 0) + 1;
   const youFollow = follows.filter((p) => builders.has(p));
@@ -170,7 +191,7 @@ async function loadNetwork(pk) {
   setNet(pk, youFollow, n, follows.length, newest.size);
 }
 function setNet(pk, follows, n, total, found) {
-  NET = { pk, follows: new Set(follows), n: new Map(Object.entries(n)) };
+  NET = { pk, follows: new Set(follows), n: new Map(Object.entries(n)), max: Math.max(10, ...Object.values(n)) };
   $("status").textContent = `Ranked by the ${total} people you follow` + (found ? ` (${found} follow lists found)` : "") +
     `. ${follows.length} of these builders you already follow.`;
   $("clear").hidden = false; $("hfl").hidden = false;
@@ -179,7 +200,9 @@ function setNet(pk, follows, n, total, found) {
 
 // ---- view
 const followedBy = (r) => (NET ? NET.n.get(r.pk) || 0 : r.bf);
-const score = (r) => r.base + (NET ? Math.min(followedBy(r), 40) * 1.5 : Math.min(r.bf, 60) * 1.2);
+// The network term (0–60) is relative to the builder most followed in your network, so it keeps telling people apart
+// whether you follow 50 accounts or 2,000.
+const score = (r) => r.base + (NET ? 60 * Math.sqrt(followedBy(r) / NET.max) : Math.min(r.bf, 60) * 1.2);
 function render() {
   const q = $("q").value.trim().toLowerCase(), hf = NET && $("hideFollow").checked, po = $("posting").checked, src = $("src").value, sort = $("sort").value;
   try { localStorage.setItem("nb-view", JSON.stringify({ hideFollow: $("hideFollow").checked, posting: po, src, sort })); } catch (e) {}

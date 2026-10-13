@@ -200,8 +200,10 @@ for (let i = 0; i < candidates.length; i += 100) {
 }
 
 // "Followed by N builders": how many other candidates list this person in their follows.
+// The directory's own author never counts: their follows must not shape the public ranking, even if they qualify.
+const OWNER = pubkeyOf("npub175rnagjgxtvwvfrdytkqkkn4h062zf2cuwkx0jc8xc9nga895s8qgsef5g");
 const candSet = new Set(candidates), builderFollowers = new Map<string, number>();
-for (const [pk, e] of contacts)
+for (const [pk, e] of contacts) if (pk !== OWNER)
   for (const p of new Set<string>(e.tags.filter((t: string[]) => t[0] === "p").map((t: string[]) => t[1])))
     if (p !== pk && candSet.has(p)) builderFollowers.set(p, (builderFollowers.get(p) ?? 0) + 1);
 
