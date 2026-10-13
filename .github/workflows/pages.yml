@@ -8,6 +8,7 @@ on:
     branches: [main]
 
 permissions:
+  actions: write # keepalive below
   contents: read
   pages: write
   id-token: write
@@ -20,14 +21,22 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
       - name: Collect directory data
         run: bun collect.ts
         timeout-minutes: 30
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/upload-pages-artifact@v3
+      # GitHub disables scheduled workflows after 60 days without repo activity, and deploys don't count.
+      # Re-enabling through the API is reported to reset that clock (undocumented), so never fail the build on it.
+      - name: Keep the daily schedule alive
+        if: github.event_name == 'schedule'
+        continue-on-error: true
+        run: gh api -X PUT repos/${{ github.repository }}/actions/workflows/pages.yml/enable
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: site
 
@@ -39,4 +48,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
